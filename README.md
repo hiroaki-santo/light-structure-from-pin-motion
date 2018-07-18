@@ -1,2 +1,2 @@
-# light-structure-from-pin-motion
-Coming soon...
+# Light Structure from Pin Motion
+This is the project page for our ECCV 2018 paper 'Light Structure from Pin Motion: Simple and Accurate Point Light Calibration for Physics-based Modeling' by Hiroaki Santo, Michael Waechter, Masaki Samejima, Yusuke Sugano, and Yasuyuki Matsushita. You can find links to our [paper](http://www-infobiz.ist.osaka-u.ac.jp/wp-content/uploads/paper/pdf/Santo_Light_Structure_from_Pin_Motion_ECCV_2018_paper.pdf), [supplemental material](http://www-infobiz.ist.osaka-u.ac.jp/wp-content/uploads/paper/pdf/Santo_Light_Structure_from_Pin_Motion_ECCV_2018_supplemental.pdf), and [Youtube video](https://www.youtube.com/watch?v=WWcVqY4XqLM). The code will follow soon.
