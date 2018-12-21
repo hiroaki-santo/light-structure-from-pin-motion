@@ -17,12 +17,73 @@ import methods
 import utils
 import utils_simulation
 
+import os
 
-def simulation(pin_num, pose_num, light_board_distance=[400., 600.], pin_height=[20., 50.], types="near",
-               noise_pose=0., noise_shadow=0.,
-               ransac_num=10, ransac_iter=30,
-               seed=None):
+
+def solve(projected_points, Rs, tvecs, method, ransac_num, ransac_iter):
+    pose_num, pin_num, _ = projected_points.shape
+
+    if method == "near":
+        init_result = methods.solution_near_linear(projected_points, Rs, tvecs)
+        all_results = utils.ransac_wrapper(projected_points, Rs, tvecs, methods.solve_near,
+                                           ransac_num=min(ransac_num, pose_num),
+                                           iter=ransac_iter,
+                                           init_P=init_result["P"],
+                                           init_L=init_result["L"])
+        result = utils.ransac_find_best_near(all_results, projected_points, Rs, tvecs)
+
+    elif method == "distant":
+        init_result = methods.solution_distant_linear(projected_points, Rs, tvecs)
+        all_results = utils.ransac_wrapper(projected_points, Rs, tvecs, methods.solve_distant,
+                                           ransac_num=min(ransac_num, pose_num),
+                                           iter=ransac_iter,
+                                           init_P=init_result["P"],
+                                           init_L=init_result["L"])
+        result = utils.ransac_find_best_distant(all_results, projected_points, Rs, tvecs)
+    else:
+        raise ValueError
+
+    return init_result, result
+
+
+def real_data(data_path, pin_num, method, ransac_num, ransac_iter):
+    assert method in ["near", "distant"], method
+    assert os.path.exists(data_path), data_path
+
+    data = utils.load_data(dir_path=data_path, pin_num=pin_num)
+
+    projected_points_detected = data["projected_points_detected"]
+    Rs = data["Rs"]
+    tvecs = data["tvecs"]
+    projected_points, ng_indices = utils.tracking(projected_points_detected)
+    if len(ng_indices) > 0:
+        print(ng_indices)
+
+    init_result, result = solve(projected_points=projected_points, Rs=Rs, tvecs=tvecs, method=method,
+                                ransac_num=ransac_num, ransac_iter=ransac_iter)
+
+    print("convex:")
+    print("Pin Positions")
+    print(init_result["P"])
+    if method == "near":
+        print("Estimated Position", init_result["best_global_position"])
+    elif method == "distant":
+        print(init_result["best_global_position"] / init_result["best_global_position"][2])
+
+    ##########################
+    print("Bundle Adjustment:")
+    print("Pin positions")
+    print(result["P"])
+    if method == "near":
+        print("Estimated Position", result["best_global_position"])
+    elif method == "distant":
+        print(result["best_global_position"] / result["best_global_position"][2])
+
+
+def simulation(pin_num, pose_num, light_board_distance=[400., 600.], pin_height=[20., 50.], types="near", method="near",
+               noise_pose=0., noise_shadow=0., ransac_num=10, ransac_iter=30, seed=None):
     assert types in ["near", "distant"], types
+    assert method in ["near", "distant"], method
 
     if seed is not None:
         np.random.seed(seed)
@@ -43,8 +104,8 @@ def simulation(pin_num, pose_num, light_board_distance=[400., 600.], pin_height=
     else:
         raise ValueError(types)
 
-    projected_points, sim_data = utils_simulation.gen_simulation_data(pin_coordinates, global_light_position,
-                                                                      types, pose_num=pose_num,
+    projected_points, sim_data = utils_simulation.gen_simulation_data(pin_coordinates, global_light_position, types,
+                                                                      pose_num=pose_num,
                                                                       light_board_distance=light_board_distance,
                                                                       seed=seed)
 
@@ -62,25 +123,8 @@ def simulation(pin_num, pose_num, light_board_distance=[400., 600.], pin_height=
         projected_points += np.random.normal(0, noise_shadow, size=projected_points.shape)
         projected_points[:, :, 2] = 1.
 
-    if types == "near":
-        init_result = methods.solution_near_linear(projected_points, Rs, tvecs)
-        all_results = utils.ransac_wrapper(projected_points, Rs, tvecs, methods.solve_near,
-                                           ransac_num=min(ransac_num, pose_num),
-                                           iter=ransac_iter,
-                                           init_P=init_result["P"],
-                                           init_L=init_result["L"])
-        result = utils.ransac_find_best_near(all_results, projected_points, Rs, tvecs)
-
-    elif types == "distant":
-        init_result = methods.solution_distant_linear(projected_points, Rs, tvecs)
-        all_results = utils.ransac_wrapper(projected_points, Rs, tvecs, methods.solve_distant,
-                                           ransac_num=min(ransac_num, pose_num),
-                                           iter=ransac_iter,
-                                           init_P=init_result["P"],
-                                           init_L=init_result["L"])
-        result = utils.ransac_find_best_distant(all_results, projected_points, Rs, tvecs)
-    else:
-        raise ValueError
+    init_result, result = solve(projected_points=projected_points, Rs=Rs, tvecs=tvecs, method=method,
+                                ransac_num=ransac_num, ransac_iter=ransac_iter)
 
     print("GT:")
     print("Pin head positions:")
@@ -115,9 +159,12 @@ if __name__ == '__main__':
     parser.add_argument("--sim_noise_pose", type=float, default=0.0,
                         help="The noise's standard deviation for pose of board.")
     parser.add_argument("--sim_pose_num", type=int, default=10)
-    parser.add_argument("--sim_pin_num", type=int, default=5)
     parser.add_argument("--sim_board_distance", type=float, default=500, help="t_z in Fig. 6.")
     parser.add_argument("--seed", type=int, default=-1, help="for np.random.seed()")
+
+    parser.add_argument("--data_path", "-i", type=str, default="")
+    parser.add_argument("--pin_num", type=int, default=5)
+    parser.add_argument("--method", type=str, default="near", help="Type for solution method: near or distant.")
 
     parser.add_argument("--ransac_num", type=int, default=10)
     parser.add_argument("--ransac_iter", type=int, default=30)
@@ -126,8 +173,13 @@ if __name__ == '__main__':
 
     seed = ARGS.seed if ARGS.seed >= 0 else None
 
-    simulation(pin_num=ARGS.sim_pin_num, pose_num=ARGS.sim_pose_num,
-               noise_shadow=ARGS.sim_noise_shadow, noise_pose=ARGS.sim_noise_pose,
-               light_board_distance=[ARGS.sim_board_distance - 100., ARGS.sim_board_distance + 100.],
-               ransac_num=ARGS.ransac_num, ransac_iter=ARGS.ransac_iter, types=ARGS.sim_type,
-               seed=seed)
+    if ARGS.data_path != "":
+        real_data(ARGS.data_path, pin_num=ARGS.pin_num, method=ARGS.method,
+                  ransac_num=ARGS.ransac_num, ransac_iter=ARGS.ransac_iter)
+
+    else:
+        simulation(pin_num=ARGS.pin_num, pose_num=ARGS.sim_pose_num,
+                   noise_shadow=ARGS.sim_noise_shadow, noise_pose=ARGS.sim_noise_pose,
+                   light_board_distance=[ARGS.sim_board_distance - 100., ARGS.sim_board_distance + 100.],
+                   ransac_num=ARGS.ransac_num, ransac_iter=ARGS.ransac_iter, types=ARGS.sim_type, method=ARGS.method,
+                   seed=seed)

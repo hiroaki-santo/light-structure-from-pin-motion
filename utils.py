@@ -9,7 +9,12 @@ from __future__ import generators
 from __future__ import print_function
 from __future__ import unicode_literals
 
+import glob
+
+import cv2
 import numpy as np
+
+import os
 
 
 def ang_error_deg(a, b):
@@ -29,6 +34,28 @@ def polar2xyz(theta, phi, r):
     z = r * np.cos(theta)
 
     return np.array([x, y, z])
+
+
+def find_homography(marker_coordinates, board_obj_points):
+    corresponds = []
+
+    assert len(marker_coordinates) == len(board_obj_points)
+
+    for i in range(len(marker_coordinates)):
+        for j in range(4):
+            img_point = marker_coordinates[i, j]
+            board_point = board_obj_points[i, j][:2]
+
+            if np.sum(img_point) == 0:
+                continue
+
+            corresponds.append((img_point, board_point))
+
+    src = np.float32([pair[0] for pair in corresponds]).reshape(-1, 1, 2)
+    dst = np.float32([pair[1] for pair in corresponds]).reshape(-1, 1, 2)
+
+    retval, mask = cv2.findHomography(src, dst, cv2.RANSAC)
+    return retval
 
 
 def project_distant(L, P):
@@ -183,3 +210,94 @@ def ransac_find_best_distant(results, projected_points, Rs, tvecs=None):
             best_result = result
 
     return best_result
+
+
+def load_data(dir_path, pin_num):
+    """
+
+    :param str dir_path:
+    :param int pin_num:
+    :return:
+    """
+    print("[*] load_data()")
+
+    assert os.path.exists(dir_path), dir_path
+    assert pin_num > 0, pin_num
+
+    camera_matrix, camera_dist = load_camera_params(dir_path)
+
+    #############
+    img_paths = glob.glob(os.path.join(dir_path, "*.png"))
+    img_paths = sorted(img_paths)
+    img_paths = np.array(img_paths, dtype=str)
+
+    def __file_name(p):
+        file_name, ext = os.path.splitext(p)
+        return file_name
+
+    file_names = [__file_name(path) for path in img_paths]
+    detected_shadow_paths = [os.path.join(dir_path, "{}_detected_label.txt".format(file_name))
+                             for file_name in file_names]
+    marker_coordinates_paths = [os.path.join(dir_path, "{}_marker_coordinates.npz".format(path)) for path in file_names]
+
+    marker_coordinates_paths = np.array(marker_coordinates_paths, dtype=str)
+    detected_shadow_paths = np.array(detected_shadow_paths, dtype=str)
+
+    ############
+    imgs = [cv2.imread(path)[:, :, ::-1] for path in img_paths]
+    imgs = [cv2.undistort(i, camera_matrix, camera_dist) for i in imgs]
+
+    detected_shadow_points = [np.loadtxt(path) for path in detected_shadow_paths]
+    projected_points_detected = np.zeros(shape=(len(detected_shadow_points), pin_num, 3))
+    if len(detected_shadow_points) != 0:
+        for l, p in enumerate(detected_shadow_points):
+            projected_points_detected[l, :, :] = p
+
+    marker_coordinates = [np.load(path)["marker_coordinates"] for path in marker_coordinates_paths]
+    board_objPoints = [np.load(path)["board_objPoints"] for path in marker_coordinates_paths]
+    Rs = np.array([np.load(path)["R"] for path in marker_coordinates_paths])
+    tvecs = np.array([np.load(path)["tvec"] for path in marker_coordinates_paths])
+    tvecs = tvecs.reshape(-1, 3)
+
+    print("[*] load_data() complete.")
+    return {"img_paths": img_paths, "imgs": imgs,
+            "marker_coordinates": marker_coordinates, "board_objPoints": board_objPoints,
+            "projected_points_detected": projected_points_detected, "Rs": Rs, "tvecs": tvecs}
+
+
+def load_camera_params(dir_path):
+    path = glob.glob(os.path.join(dir_path, "params_*.npz"))[-1]
+    params = np.load(path)
+    camera_matrix = params["intrinsic"]
+    camera_dist = params["dist"]
+
+    return camera_matrix, camera_dist
+
+
+def tracking(unsorted_projected_points):
+    pose_num, pin_num, _ = unsorted_projected_points.shape
+
+    projected_points = np.zeros_like(unsorted_projected_points) - 1
+    projected_points[0, :, :] = unsorted_projected_points[0, :, :]
+
+    failed_indices = []
+    for i in range(1, pose_num):
+        points_ = projected_points[i - 1, :, :]
+        points = unsorted_projected_points[i, :, :]
+
+        used_indices = []
+        for j in range(pin_num):
+            prev_point = points_[j, :]
+            min_d, index = np.finfo(float).max, -1
+            for j_ in range(pin_num):
+                point = points[j_, :]
+                d = np.linalg.norm(prev_point[:2] - point[:2])
+                if d < min_d:
+                    min_d = d
+                    index = j_
+            projected_points[i, j, :] = unsorted_projected_points[i, index, :]
+            used_indices.append(index)
+        if len(np.unique(used_indices)) != len(used_indices):
+            failed_indices.append(i)
+
+    return projected_points, failed_indices

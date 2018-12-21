@@ -14,9 +14,10 @@ import numpy as np
 
 import utils
 
-IRLS_ITER = 1e5
+XTOL_BA = 1.0e-8
+MAXFEV = int(1e5)
 IRLS_TOL = 1.0e-8
-XTOL_BA = 1e-8
+IRLS_ITER = int(1e5)
 
 
 def solution_near_linear(projected_points, Rs, tvecs):
@@ -231,7 +232,7 @@ def solve_near(projected_points, Rs, tvecs, init_L, init_P):
     from scipy.optimize import leastsq
     x, cov_x, infodict, mesg, ier = leastsq(_fit_func, init_param.reshape(-1),
                                             args=[],
-                                            xtol=XTOL_BA, maxfev=1000000, full_output=True)
+                                            xtol=XTOL_BA, maxfev=MAXFEV, full_output=True)
 
     if ier not in [1, 2, 3, 4]:
         warnings.warn("Solution not found: ier:{}, {}".format(ier, mesg))
@@ -287,7 +288,7 @@ def solve_distant(projected_points, Rs, tvecs, init_L, init_P):
     from scipy.optimize import leastsq
     x, cov_x, infodict, mesg, ier = leastsq(_fit_func, init_param.reshape(-1),
                                             args=[],
-                                            xtol=XTOL_BA, maxfev=1000000, full_output=True)
+                                            xtol=XTOL_BA, maxfev=MAXFEV, full_output=True)
     if ier not in [1, 2, 3, 4]:
         warnings.warn("Solution not found: ier:{}, {}".format(ier, mesg))
 
