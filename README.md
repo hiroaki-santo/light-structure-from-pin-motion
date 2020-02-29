@@ -1,13 +1,20 @@
 # Light Structure from Pin Motion
-This is the project page for our ECCV 2018 paper 'Light Structure from Pin Motion: Simple and Accurate Point Light Calibration for Physics-based Modeling'
-by Hiroaki Santo, Michael Waechter, Masaki Samejima, Yusuke Sugano, and Yasuyuki Matsushita.
-You can find links to our [paper](http://www-infobiz.ist.osaka-u.ac.jp/wp-content/uploads/paper/pdf/Santo_Light_Structure_from_Pin_Motion_ECCV_2018_paper.pdf),
-[supplemental material](http://www-infobiz.ist.osaka-u.ac.jp/wp-content/uploads/paper/pdf/Santo_Light_Structure_from_Pin_Motion_ECCV_2018_supplemental.pdf),
-and [Youtube video](https://www.youtube.com/watch?v=WWcVqY4XqLM).
+This is the project page for our IJCV paper 'Light Structure from Pin Motion: Geometric point light source calibration' by Hiroaki Santo, Michael Waechter, Wen-Yan Lin, Yusuke Sugano, and Yasuyuki Matsushita.
+Here you can find a link to our [preprint version](http://www-infobiz.ist.osaka-u.ac.jp/wp-content/uploads/2020/02/santo2020light.pdf).
 
-If you use our paper or code for research purposes, please cite our paper:
+An earlier version was presented at ECCV 2018: 'Light Structure from Pin Motion: Simple and Accurate Point Light Calibration for Physics-based Modeling' by Hiroaki Santo, Michael Waechter, Masaki Samejima, Yusuke Sugano, and Yasuyuki Matsushita.
+Here you can find links to our [paper](http://www-infobiz.ist.osaka-u.ac.jp/wp-content/uploads/paper/pdf/Santo_Light_Structure_from_Pin_Motion_ECCV_2018_paper.pdf), [supplemental material](http://www-infobiz.ist.osaka-u.ac.jp/wp-content/uploads/paper/pdf/Santo_Light_Structure_from_Pin_Motion_ECCV_2018_supplemental.pdf), and [Youtube video](https://www.youtube.com/watch?v=WWcVqY4XqLM).
+
+If you use our papers or code for research purposes, please cite our papers:
 ```
-@inproceedings{Santo_2018_ECCV,
+@article{santo2020light,
+title = {Light structure from pin motion: Geometric point light source calibration},
+author = {Hiroaki Santo and Michael Waechter and Wen-Yan Lin and Yusuke Sugano and Yasuyuki Matsushita},
+year = {2020},
+journal = {International Journal of Computer Vision (IJCV)},
+pubstate = {forthcoming}
+}
+@inproceedings{santo2018light,
 	title = {Light Structure from Pin Motion: Simple and Accurate Point Light Calibration for Physics-based Modeling},
 	author = {Hiroaki Santo and Michael Waechter and Masaki Samejima and Yusuke Sugano and Yasuyuki Matsushita},
 	booktitle = {European Conference on Computer Vision (ECCV)},
