@@ -8,17 +8,18 @@ Here you can find links to our [paper](http://www-infobiz.ist.osaka-u.ac.jp/wp-c
 If you use our papers or code for research purposes, please cite our papers:
 ```
 @article{santo2020light,
-title = {Light structure from pin motion: Geometric point light source calibration},
-author = {Hiroaki Santo and Michael Waechter and Wen-Yan Lin and Yusuke Sugano and Yasuyuki Matsushita},
-year = {2020},
-journal = {International Journal of Computer Vision (IJCV)},
-pubstate = {forthcoming}
+	title = {Light structure from pin motion: Geometric point light source calibration},
+	author = {Hiroaki Santo and Michael Waechter and Wen-Yan Lin and Yusuke Sugano and Yasuyuki Matsushita},
+	journal = {International Journal of Computer Vision (IJCV)},
+	doi = {10.1007/s11263-020-01312-3},
+	year = {2020}
 }
+
 @inproceedings{santo2018light,
 	title = {Light Structure from Pin Motion: Simple and Accurate Point Light Calibration for Physics-based Modeling},
 	author = {Hiroaki Santo and Michael Waechter and Masaki Samejima and Yusuke Sugano and Yasuyuki Matsushita},
 	booktitle = {European Conference on Computer Vision (ECCV)},
-	year = {2018},
+	year = {2018}
 }
 ```
 
