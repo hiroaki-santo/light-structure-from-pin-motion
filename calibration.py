@@ -10,6 +10,7 @@ from __future__ import print_function
 from __future__ import unicode_literals
 
 import argparse
+import os
 
 import numpy as np
 
@@ -17,31 +18,36 @@ import methods
 import utils
 import utils_simulation
 
-import os
-
 
 def solve(projected_points, Rs, tvecs, method, ransac_num, ransac_iter):
     pose_num, pin_num, _ = projected_points.shape
 
     if method == "near":
         init_result = methods.solution_near_linear(projected_points, Rs, tvecs)
-        all_results = utils.ransac_wrapper(projected_points, Rs, tvecs, methods.solve_near,
-                                           ransac_num=min(ransac_num, pose_num),
-                                           iter=ransac_iter,
-                                           init_P=init_result["P"],
-                                           init_L=init_result["L"])
-        result = utils.ransac_find_best_near(all_results, projected_points, Rs, tvecs)
 
     elif method == "distant":
         init_result = methods.solution_distant_linear(projected_points, Rs, tvecs)
-        all_results = utils.ransac_wrapper(projected_points, Rs, tvecs, methods.solve_distant,
-                                           ransac_num=min(ransac_num, pose_num),
-                                           iter=ransac_iter,
-                                           init_P=init_result["P"],
-                                           init_L=init_result["L"])
-        result = utils.ransac_find_best_distant(all_results, projected_points, Rs, tvecs)
+        init_L = init_result["L"]
+        init_P = init_result["P"]
+
+        ld = Rs[0].dot(init_L[0, :])  # direction vector
+        lp = tvecs[0, :] + init_P[0, :] + ld * 1.0e+10 * np.max(init_P[:, 2])  # psuedo position
+
+        for l in range(pose_num):
+            init_L[l, :] = Rs[l].T.dot(lp) - Rs[l].T.dot(tvecs[l, :]).flatten()
+
+        init_result["L"] = init_L
+
     else:
-        raise ValueError
+        raise NotImplementedError("Classification of near/distant (IJCV version)")
+
+    ransac_iter = ransac_iter if ransac_num < pose_num else 1
+    all_results = utils.ransac_wrapper(projected_points, Rs, tvecs, methods.solve_unified,
+                                       ransac_num=min(ransac_num, pose_num),
+                                       iter=ransac_iter,
+                                       init_P=init_result["P"],
+                                       init_L=init_result["L"])
+    result = utils.ransac_find_best_near(all_results, projected_points, Rs, tvecs)
 
     return init_result, result
 
@@ -55,9 +61,17 @@ def real_data(data_path, pin_num, method, ransac_num, ransac_iter):
     projected_points_detected = data["projected_points_detected"]
     Rs = data["Rs"]
     tvecs = data["tvecs"]
-    projected_points, ng_indices = utils.tracking(projected_points_detected)
+
+    # projected_points, ng_indices = utils.tracking(projected_points_detected)
+    projected_points, ng_indices = utils.shadow_correspondence(projected_points_detected, seed=seed)
+
     if len(ng_indices) > 0:
-        print(ng_indices)
+        indices = [i for i in range(len(projected_points)) if i not in ng_indices]
+
+        print("Available poses:", indices, len(indices), "/", len(projected_points))
+        projected_points = projected_points[indices]
+        Rs = Rs[indices]
+        tvecs = tvecs[indices]
 
     init_result, result = solve(projected_points=projected_points, Rs=Rs, tvecs=tvecs, method=method,
                                 ransac_num=ransac_num, ransac_iter=ransac_iter)

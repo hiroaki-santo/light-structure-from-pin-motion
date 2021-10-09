@@ -188,6 +188,61 @@ def solution_distant_linear(projected_points, Rs, tvecs=None):
     return result
 
 
+def solve_unified(projected_points, Rs, tvecs, init_L, init_P):
+    pose_num, pin_num, _ = projected_points.shape
+    assert Rs.shape == (pose_num, 3, 3)
+    assert tvecs.shape == (pose_num, 3)
+
+    def _fit_func(params, _):
+
+        param_P = params[:pin_num * 3].reshape(pin_num, 3)
+        param_global_light_position = params[pin_num * 3:]
+
+        L = np.zeros(shape=(pose_num, 3), dtype=params.dtype)
+        for l in range(pose_num):
+            L[l, :] = Rs[l].T.dot(param_global_light_position) - Rs[l].T.dot(tvecs[l])
+
+        res = projected_points.astype(params.dtype) - utils.project_unified(L, param_P)
+
+        return np.r_[res.flatten(),].flatten()
+
+    init_param = np.ones(shape=(pin_num * 3 + 3))
+    P = init_param[:pin_num * 3].reshape(pin_num, 3)
+    global_light_position = init_param[pin_num * 3:]
+
+    ######################################################
+    P[:] = init_P
+    global_light_position[:] = Rs[0].dot(init_L[0, :]) + tvecs[0]
+    #######################################################
+
+    from scipy.optimize import leastsq
+    x, cov_x, infodict, mesg, ier = leastsq(_fit_func, init_param.reshape(-1),
+                                            args=[],
+                                            xtol=XTOL_BA, maxfev=MAXFEV, full_output=True)
+
+    if ier not in [1, 2, 3, 4]:
+        warnings.warn("Solution not found: ier:{}, {}".format(ier, mesg))
+
+    res = np.linalg.norm(infodict["fvec"])
+    P = x[:pin_num * 3].reshape(pin_num, 3).astype(np.float64)
+    global_light_position = x[pin_num * 3:].astype(np.float64)
+
+    L = np.zeros(shape=(pose_num, 3))
+    for l in range(pose_num):
+        L[l, :] = Rs[l].T.dot(global_light_position) - Rs[l].T.dot(tvecs[l])
+
+    res = utils.error_reprojection(projected_points, L, P)
+    res = np.mean(res)
+
+    result = {}
+    result["best_global_position"] = global_light_position
+    result["L"] = L
+    result["P"] = P
+    result["res"] = res
+
+    return result
+
+
 def solve_near(projected_points, Rs, tvecs, init_L, init_P):
     """
     Solve Eq. (5) in near light case
